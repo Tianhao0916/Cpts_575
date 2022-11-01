@@ -1,0 +1,202 @@
+---
+title: "assignment 4"
+author: "Jinyang Ruan"
+date: "10/1/2021"
+output: pdf_document
+---
+
+```{r setup}
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(nycflights13)
+library(corrplot)
+library(maps)
+library(ggmap)
+library(viridis)
+library(textreadr)
+library(tm)
+library(wordcloud)
+library(RColorBrewer)
+```
+
+```{r prepare}
+flights <- nycflights13::flights
+weather <- nycflights13::weather
+planes <- nycflights13::planes
+airports <- nycflights13::airports
+```
+
+##Problem1
+
+###1.a Filter the dataset (using a left join) to display the tail number, year, month, day, hour, origin, and humidity for all flights heading to Tampa International Airport (TPA) after 12pm on November 1, 2013.
+
+```{r}
+
+# just getting a narrower dataframe
+flight_1a = flights %>% 
+            select(year, month, day, hour, origin, dest, tailnum, carrier)
+# and now doing a left join
+Result_1a = flight_1a %>% 
+  filter(year==2013, month==11, day==1, hour>=12 & hour<=18, dest=="TPA") %>%
+  left_join(weather, by=c("origin", "year", "month", "day", "hour")) %>%
+  select (tailnum, year, month,  day, hour, origin, humid) 
+as_tibble(Result_1a)
+
+```
+
+###1.bWhat is the difference between the following two joins? 
+
+- anti_join(flights, airports, by = c("dest" = "faa")): this operation will drop from table flights all observations that have a match with the condition ("dest" = "faa") in table airports. the result is a subset of table flights.
+
+- anti_join(airports, flights, by = c("faa" = "dest")): this operation will drop from table airports all observations that have a match with the condition ("dest" = "faa") in table flights the result is a subset of table airports.
+
+###1.cFilter the table flights to only show flights with planes that have flown at least 100 flights. Hint: tailnum is used to identify planes. (suggested functions: R:semi_join(), count(), filter(); Python: merge(), value_counts(), filter())
+```{r}
+
+flights_1c = flights %>% 
+  semi_join(planes,by = c("tailnum","year")) %>%
+  group_by(tailnum) %>% 
+  count(tailnum)%>%
+  filter(n>=100)
+
+as_tibble(flights_1c)
+
+```
+
+###1.dWhat weather conditions make it more likely to see a delay? Briefly discuss any relations/patterns you found.
+
+```{r}
+# create a new table which only includes delay and weather conditions
+flights_1d = flights %>%
+  left_join(weather, by = c("year", "month", "day", 
+                            "origin", "hour", "time_hour")) %>%
+  select(dep_delay, arr_delay, temp:visib)
+# sort the table by decreasing delay time
+flights_1d_sorted = flights_1d %>%
+  arrange(desc(abs(flights_1d$dep_delay)+abs(flights_1d$arr_delay)))
+# pick fist 100 rows which has more significant delay time
+flights_1d_sorted_100 <- flights_1d_sorted[1:100,]
+# generate correlation matrix for the above table
+cor(flights_1d_sorted_100)
+```
+- As the correlation matrix shows, temperature and dewpoint temperature make it more likely to see a delay. As the temperature and dewp goes down, delay times go up. From my perspective, temperature usually can lead other weather conditions. With the low temperature it is, the weather conditions become worse for flights.
+
+###1.eProduce a map that sizes each destination airport by the number of incoming flights. You may use a continuous scale for the size. Here is a code snippet to draw a map of all flight destinations, which you can use as a starting point. You may need to install the maps packages if you have not already. Adjust the title, axis labels and aesthetics to make this visualization as clear as possible.
+
+```{r}
+#Get the number of incoming flights and join the tables
+NumInc = select(flights, dest) %>%
+  group_by(dest) %>%
+  count(dest) %>%
+  inner_join(select(airports, faa, latitude=lat, longtitude=lon),
+             by = c("dest" = "faa"))
+#Get map box
+MapBox = c(min(NumInc$longtitude-5), min(NumInc$latitude-5), 
+           max(NumInc$longtitude+5), max(NumInc$latitude+5))
+Map = get_map(location=MapBox, source = "stamen", maptype = "toner", zoom = 5)
+#Draw the map
+ggmap(Map) +
+  coord_fixed(ratio = 1.5) +
+  geom_point(data=NumInc, aes(longtitude, latitude, size = n)) + 
+  borders("state") + 
+  labs(title="the number of incoming flights for the airports",
+       x="Longitude", y="Latitude") + 
+  theme(plot.title = element_text(hjust = 0.5))
+
+```
+
+##Problem2
+
+```{r}
+#manually get latitude and longitude for each place. 
+#source:https://www.mapdevelopers.com/geocode_tool.php
+#source:https://developers.google.com/public-data/docs/canonical/states_csv
+
+covid <- read.csv("E:/WSU Graduate/CPT_S 575 Data Science/covid19_vaccinations_USA.csv",
+                  fileEncoding = 'UTF-8-BOM', header = TRUE)
+
+```
+
+```{r}
+
+MapBox = c(min(covid$lon-5), min(covid$lat-5), 
+           max(covid$lon+5), max(covid$lat+5))
+Map1 = get_map(location=MapBox, source = "stamen", maptype = "toner", zoom = 5)
+#Draw the map
+ggmap(Map1) +
+  coord_fixed(ratio = 1.5) +
+  geom_point(data=covid, aes(longitude=lon, latitude=lat, colour = Janssen_doses)) + 
+  borders("state") + 
+  labs(title="total number of Janssen doses administered",
+       x="Longitude", y="Latitude") + 
+  theme(plot.title = element_text(hjust = 0.5)) +
+          scale_color_gradient(low="green", high="black")
+
+
+```
+
+```{r}
+
+Map2 = get_map(location=MapBox, source = "stamen", maptype = "toner", zoom = 5)
+#Draw the map
+ggmap(Map2) +
+  coord_fixed(ratio = 1.5) +
+  geom_point(data=covid, aes(longitude=lon, latitude=lat, colour = Moderna_doses)) + 
+  borders("state") + 
+  labs(title="total number of Moderna doses administered",
+       x="Longitude", y="Latitude") + 
+  theme(plot.title = element_text(hjust = 0.5))+
+          scale_color_gradient(low="Blue", high="black")
+
+```
+
+```{r}
+
+Map3 = get_map(location=MapBox, source = "stamen", maptype = "toner", zoom = 5)
+#Draw the map
+ggmap(Map3) +
+  coord_fixed(ratio = 1.5) +
+  geom_point(data=covid, aes(longitude=lon, latitude=lat, colour = Pfizer_doses)) + 
+  borders("state") + 
+  labs(title="total number of Pfizer doses administered",
+       x="Longitude", y="Latitude") + 
+  theme(plot.title = element_text(hjust = 0.5))+
+   scale_color_gradient(low="orange", high="red")
+
+
+```
+
+
+##Problem 3
+```{r}
+text = readLines("Argumentative Essay.txt")
+Docs  = Corpus(VectorSource(text))
+#clean data
+Docs  = Docs %>%
+  tm_map(removeNumbers) %>%
+  tm_map(removePunctuation) %>%
+  tm_map(stripWhitespace) %>%
+  tm_map(content_transformer(tolower)) %>%
+  tm_map(removeWords, stopwords("english"))
+
+DocWords = Docs %>%
+  TermDocumentMatrix() %>%
+  as.matrix() %>%
+  rowSums() %>%
+  sort(decreasing=TRUE) 
+
+Df = data.frame(word = names(DocWords), freq=DocWords)
+head (Df)
+# Generate the word cloud
+layout(matrix(c(1, 2), nrow=2), heights=c(1, 4))
+par(mar=rep(0, 4))
+plot.new()
+text(x=0.5, y=0.5, "Jinyang Argumentative Essay")
+wordcloud(words = Df$word, freq = Df$freq, min.freq = 1,           
+          max.words=200, random.order=FALSE, rot.per=0.35, colors=brewer.pal(4, "Dark2"))
+
+```
+
+
+

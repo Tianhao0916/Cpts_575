@@ -1,0 +1,271 @@
+---
+title: "Assignment5"
+author: "Jinyang Ruan"
+date: "10/25/2021"
+output: pdf_document
+---
+
+```{r}
+knitr::opts_chunk$set(fig.width=8, fig.height=2, fig.align = 'center', message=FALSE, warning=FALSE)
+```
+
+```{r}
+library(kableExtra)
+library(stringi)
+library(textreadr)
+library(tm)
+library(SnowballC)
+library(caret)
+library(naivebayes)
+```
+
+```{r}
+cars = read.csv("D:/WSU Graduate/CPT_S 575 Data Science/cars.csv")
+kable(head(cars), format = "latex", booktabs = T, caption="Dataset of cars.csv")%>%
+    kable_styling(latex_options = c("hold_position"))
+cars
+```
+
+```{r}
+LR = lm(MPG ~ . - Car, data = cars)
+summary (LR)
+```
+
+```{r}
+plot(LR)
+```
+
+```{r}
+InterLR = lm(MPG ~ . - Car + Weight:Acceleration + Acceleration:Horsepower, data = cars)
+summary(InterLR)
+```
+
+```{r}
+library(MASS)
+Boston = MASS::Boston
+kable(head(Boston), format = "latex", booktabs = T, caption="Dataset of Boston") %>%
+    kable_styling(latex_options = c("hold_position"))
+Boston
+```
+
+```{r}
+LinearReg_zn      = lm(crim ~ zn,      data = Boston)
+LinearReg_indus   = lm(crim ~ indus,   data = Boston)
+LinearReg_chas    = lm(crim ~ chas,    data = Boston)
+LinearReg_nox     = lm(crim ~ nox,     data = Boston)
+LinearReg_rm      = lm(crim ~ rm,      data = Boston)
+LinearReg_age     = lm(crim ~ age,     data = Boston)
+LinearReg_dis     = lm(crim ~ dis,     data = Boston)
+LinearReg_rad     = lm(crim ~ rad,     data = Boston)
+LinearReg_tax     = lm(crim ~ tax,     data = Boston)
+LinearReg_ptratio = lm(crim ~ ptratio, data = Boston)
+LinearReg_black   = lm(crim ~ black,   data = Boston)
+LinearReg_lstat   = lm(crim ~ lstat,   data = Boston)
+LinearReg_medv    = lm(crim ~ medv,    data = Boston)
+#summary (LinearReg_zn)
+#summary (LinearReg_indus)
+#summary (LinearReg_chas)
+#summary (LinearReg_nox)
+#summary (LinearReg_rm)
+#summary (LinearReg_age)
+#summary (LinearReg_dis)
+#summary (LinearReg_rad)
+#summary (LinearReg_tax)
+#summary (LinearReg_ptratio)
+#summary (LinearReg_black)
+#summary (LinearReg_lstat)
+#summary (LinearReg_medv)
+```
+
+```{r}
+par(mfrow = c(1,4))
+plot(LinearReg_nox,  main = "predictor = nox")
+plot(LinearReg_chas, main = "predictor = chas")
+plot(LinearReg_rm,  main = "predictor = rm")
+plot(LinearReg_dis,  main = "predictor = dis")
+plot(LinearReg_medv, main = "predictor = medv")
+```
+
+```{r}
+Rsq_nox  = summary(LinearReg_nox)$r.squared
+Rsq_chas = summary(LinearReg_chas)$r.squared
+Rsq_rm  = summary(LinearReg_rm)$r.squared
+Rsq_dis  = summary(LinearReg_dis)$r.squared
+Rsq_medv = summary(LinearReg_medv)$r.squared
+cat(Rsq_nox, Rsq_chas, Rsq_rm, Rsq_dis, Rsq_medv, sep=", ")
+```
+
+```{r}
+LinearReg = lm(crim ~ . - crim, data = Boston)
+summary(LinearReg)
+```
+
+```{r}
+CoefSimple = vector("numeric", 0)
+CoefSimple = c(LinearReg_zn$coefficient[2],    LinearReg_indus$coefficient[2], 
+               LinearReg_chas$coefficient[2],  LinearReg_nox$coefficient[2],
+               LinearReg_rm$coefficient[2],    LinearReg_age$coefficient[2],
+               LinearReg_dis$coefficient[2],   LinearReg_rad$coefficient[2],
+               LinearReg_tax$coefficient[2],   LinearReg_ptratio$coefficient[2],
+               LinearReg_black$coefficient[2], LinearReg_lstat$coefficient[2],
+               LinearReg_medv$coefficient[2])
+print (CoefSimple)
+
+CoefMultiple = vector("numeric", 0)
+CoefMultiple = c(LinearReg$coefficients[-1])
+print (CoefMultiple)
+
+plot(CoefSimple, CoefMultiple, 
+     main = "Coefficients of Univariate & Multiple Regression",
+     xlab = "Univariate", ylab = "Multiple")
+```
+
+```{r}
+LinearReg_zn = lm(crim ~ poly(zn, 3), data = Boston)
+LinearReg_indus = lm(crim ~ poly(indus, 3), data = Boston)
+LinearReg_nox = lm(crim ~ poly(nox, 3), data = Boston)
+LinearReg_rm = lm(crim ~ poly(rm, 3), data = Boston)
+LinearReg_age = lm(crim ~ poly(age, 3), data = Boston)
+LinearReg_dis = lm(crim ~ poly(dis, 3), data = Boston)
+LinearReg_rad = lm(crim ~ poly(rad, 3), data = Boston)
+LinearReg_tax = lm(crim ~ poly(tax, 3), data = Boston)
+LinearReg_ptratio = lm(crim ~ poly(ptratio, 3), data = Boston)
+LinearReg_black = lm(crim ~ poly(black, 3), data = Boston)
+LinearReg_lstat = lm(crim ~ poly(lstat, 3), data = Boston)
+LinearReg_medv = lm(crim ~ poly(medv, 3),  data = Boston)
+summary(LinearReg_zn)
+summary(LinearReg_indus)
+summary(LinearReg_nox)
+summary(LinearReg_rm)
+summary(LinearReg_age)
+summary(LinearReg_dis)
+summary(LinearReg_rad)
+summary(LinearReg_tax)
+summary(LinearReg_ptratio)
+summary(LinearReg_black)
+summary(LinearReg_lstat)
+summary(LinearReg_medv)
+```
+
+
+```{r}
+complaints = read.csv("D:/WSU Graduate/CPT_S 575 Data Science/consumer_complaints.csv")
+complaints$Product = as.factor(complaints$Product)
+str (complaints)
+```
+
+```{r}
+TokenDTM = VCorpus(VectorSource(complaints$Consumer_complaint)) %>%
+           tm_map(removeNumbers) %>%
+           tm_map(content_transformer(tolower)) %>%
+           tm_map(removeWords, stopwords("english"))  %>%
+           tm_map(stemDocument) %>%
+           tm_map(stripWhitespace) %>%
+           DocumentTermMatrix(control=list(wordLengths=c(3,30)))  %>%
+           removeSparseTerms(0.99) 
+inspect(TokenDTM)
+```
+
+```{r}
+TokenDf = as.data.frame(as.matrix(TokenDTM), stringsAsFactors=False)
+# show a non-zero entries of a random row
+Random = sample(1:nrow(TokenDf), 1, replace=FALSE)
+RandomRow = TokenDf[Random,]
+RandomRow[which(RandomRow != 0)]
+```
+
+```{r}
+CorSet = cor(TokenDf) %>%
+         findCorrelation(cutoff=0.5)
+TokenDTM = TokenDTM[, -c(CorSet)]
+```
+
+```{r}
+convert_counts = function(x) {
+  x <- ifelse(x > 0, "Yes", "No")
+}
+
+GetConfMatrix = function (Proportion, LowFreq) {
+    #Split the original dataset and check the proportion of each categories
+    Index = createDataPartition(complaints$Product, p = Proportion, list = FALSE, times = 1)
+    
+    # Proportion 0f Consumer complaints categories in Train Data
+    TrainComplaints = complaints[Index,]
+    TrainLabels   = TrainComplaints$Product
+    prop.table(table(TrainComplaints$Product))
+    #Proportion of Article categories in Test Data
+    TestComplaints = complaints[-Index,]
+    TestLabels   = TestComplaints$Product
+    prop.table(table(TestComplaints$Product))
+
+    #Split the DTM
+    TrainDtm = TokenDTM[Index,]
+    TestDtm = TokenDTM[-Index,]
+    Freq = findFreqTerms(TrainDtm, LowFreq)
+    
+    # Build classifier
+    TrainDtm = TrainDtm[, Freq]
+    TrainDtm = apply(TrainDtm, MARGIN = 2, convert_counts)
+    Classifier = naive_bayes(TrainDtm, TrainLabels, laplace = 1)
+    summary (Classifier)
+    
+    # Predict
+    TestDtm = TestDtm[, Freq]
+    TestDtm = apply(TestDtm, MARGIN = 2, convert_counts)
+    Pred = predict(Classifier, TestDtm)
+    
+    # Return the confusion matrix
+    ConfMatrix = confusionMatrix(Pred, TestLabels)
+    return (ConfMatrix)
+}
+```
+
+```{r}
+ConfMatrix = GetConfMatrix (0.8, 10)
+ConfMatrix
+```
+
+```{r}
+Accuracy   = ConfMatrix$overall['Accuracy']*100
+sprintf("Proportion = 0.8, Accuracy = %.2f", Accuracy)
+```
+
+```{r}
+PropSet  = c(0.5, 0.6, 0.7, 0.9)
+BsetProp = 0.8
+for(prop in PropSet){
+    CurConfMatrix = GetConfMatrix (prop, 10)
+    CurAccuracy   = CurConfMatrix$overall['Accuracy']*100
+    print (sprintf("Proportion = %.2f, Accuracy = %.2f", prop, CurAccuracy))
+    if (CurAccuracy > Accuracy) {
+        Accuracy   = CurAccuracy
+        ConfMatrix = CurConfMatrix
+        BsetProp   = prop
+    }
+}
+
+sprintf("We get best accuracy = %.2f with Proportion = %.2f", Accuracy, BsetProp)
+```
+
+```{r}
+FreqSet  = c(1, 5, 20, 40, 60, 80)
+BestFreq = 10
+for(Freq in FreqSet){
+    CurConfMatrix = GetConfMatrix (BsetProp, Freq)
+    CurAccuracy   = CurConfMatrix$overall['Accuracy']*100
+    print (sprintf("LowFreq = %d, Accuracy = %.2f", Freq, CurAccuracy))
+    if (CurAccuracy > Accuracy) {
+        Accuracy   = CurAccuracy
+        ConfMatrix = CurConfMatrix
+        BestFreq   = Freq
+    }
+}
+
+sprintf("We get best accuracy = %.2f with lowFreq = %.2f and splitting proportion = %.2f", 
+         Accuracy, BestFreq, BsetProp)
+```
+
+
+```{r}
+print (ConfMatrix)
+```

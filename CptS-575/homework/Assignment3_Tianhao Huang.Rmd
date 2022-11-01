@@ -1,0 +1,210 @@
+---
+title: "hw3"
+author: "Jinyang Ruan"
+date: "9/20/2021"
+output: pdf_document
+---
+
+```{r libraries prepare}
+
+library(ggplot2)
+library(corrplot)
+library(dplyr)
+library(tidyr)
+
+```
+
+```{r}
+
+flights <- read.csv("E:/WSU Graduate/CPT_S 575 Data Science/flights.csv", header = TRUE)
+
+```
+
+```{r 1.0}
+
+flight_time <- subset(flights[c(grep(pattern = "time", colnames(flights)))])
+head(flight_time, n=10)
+
+```
+
+```{r 1.a}
+##Count the number of flights that departed NYC in the first week (first 7 days) of January and February combined.
+
+flights_1a <- filter(flights, month == 1 | month == 2, day <= 7)
+
+count(flights_1a)
+
+```
+
+```{r 1.b}
+##Print the year, month, day, carrier and air_time of the flights with the 6 longest airtimes, in descending order of air_time. 
+
+flights_1b <- arrange(flights, desc(air_time))
+flights_1b_6th <- flights_1b[1:6,]
+select(flights_1b_6th, year, month, day, carrier, air_time)
+
+```
+
+```{r 1.c}
+
+flights <- flights %>% mutate(speed = distance / air_time * 60)
+head(flights, n=6)
+```
+
+```{r 1.d}
+
+flights_1d <- subset(flights, air_time != "NA")
+flights_1d_1 = flights_1d %>% 
+               group_by(month) %>% 
+               summarise(average = mean(air_time), min = min(air_time), max = max(air_time))
+print(flights_1d_1)
+```
+
+```{r 1.e}
+
+# Impute the missing air_times as the distance divided by the average speed of flights
+flights_1e_1 = flights%>%
+  group_by(dest)%>%
+  select("dest", "distance", "air_time")%>%
+  mutate(air_time=ifelse(is.na(air_time),
+                        ifelse(is.nan(mean(air_time, na.rm = TRUE)),0,
+                  distance / mean(distance, na.rm =TRUE) * mean(air_time, na.rm = TRUE)), 
+                        air_time))%>%
+  ungroup(dest)
+head(flights_1e_1)
+
+# Impute the missing air_times with the average air_time
+flights_1e_2 = flights%>%
+  group_by(dest)%>%
+  select( "dest", "distance", "air_time")%>%
+  mutate(air_time=ifelse(is.na(air_time),
+                        ifelse(is.nan(mean(air_time,na.rm = TRUE)),0,
+                 mean(air_time,na.rm = TRUE)),
+                        air_time))%>%
+    ungroup(dest)
+head(flights_1e_2)
+
+```
+
+When we impute the missing air_times as the distance divided by the average speed of flights for that destination, we assume that for the same destination, the average speed of the flights are similar; while choosing the average air_time, the air_time of the samples are similar. Here imputation by distance divided by average speed is a better way for the air_time which usually associates with the distance.
+However, usually this "Mean Imputation" is not a good choice in practice. there are many other better solutions, such as "Hot deck imputation", "Regression imputation", and "Stochastic regression imputation". 
+
+
+
+```{r load the dataset into R and tidy the dataset}
+
+Who = tidyr::who
+who1 = Who %>%
+      pivot_longer(cols = new_sp_m014:newrel_f65, names_to = "key", values_to = "cases", values_drop_na = FALSE)%>% 
+      mutate(key = stringr::str_replace(key, "newrel", "new_rel")) %>%
+      separate(key, c("new", "var", "sexage")) %>% 
+      select(-new, -iso2, -iso3) %>% 
+      separate(sexage, c("sex", "age"), sep = 1)
+who1
+```
+
+###2.a
+It replace the header with name "newrel" to "new_rel", which can make the format of all headers consistent.
+If it is skipped, we can not extract detailed features by simply separate the header name.
+For example, given a header name of "new_sp_f5564" we can apply separate function on it and 
+extract three new features:new, sp, f5564, while in case of "newrel_m014" we can not.
+
+### 2.b How many entries are removed from the dataset when you set values_drop_na to true
+```{r 2.b}
+who2 = Who %>%
+      pivot_longer(cols = new_sp_m014:newrel_f65, names_to = "key", values_to = "cases", values_drop_na = TRUE)%>% 
+      mutate(key = stringr::str_replace(key, "newrel", "new_rel")) %>%
+      separate(key, c("new", "var", "sexage")) %>% 
+      select(-new, -iso2, -iso3) %>% 
+      separate(sexage, c("sex", "age"), sep = 1)
+who2
+# When set values_drop_na=TRUE, the remove entries can be computed as:
+count(who1) - count(who2)
+```
+
+### 2.c Explain the difference between an explicit and implicit missing value
+According to the "R for Data Science, An explicit missing value is the presence of an absence; an implicit missing value is the absence of a presence", That means for explicit missing, there will be a specific representation to indicate the missing of the value (e.g., NA). While for implicit missing, there will be no specific representation for the value.
+
+In this dataset, we can consider the case == 0 as the implicit missing value, we can get the sub-samples with following command.
+```{r}
+
+Who %>%
+pivot_longer(cols = new_sp_m014:newrel_f65, names_to = "key", values_to = "cases", values_drop_na = TRUE) %>%
+filter(cases == 0)
+
+```
+
+```{r 2.d}
+
+head(as_tibble(who2))
+sapply(who2, class)
+
+```
+
+As shown above, all features are typed appropriately except the age which is typed as character. Usually it is better to type this feature as integer, when we try to analyze this feature (e.g., distribution of the age, average age), we must compute the results with integer.
+
+```{r 2.e}
+##look at the data grouped by country
+VDCountry = who2%>%
+            group_by(country)%>%
+            tally(cases)%>%
+            top_n(5)
+ggplot(data=VDCountry, aes(x=country, y=n)) + 
+       geom_bar(stat="identity",width=0.5,fill="gray") +
+       labs(title="cases distribution in top 5 countries", 
+            x="country", y="number of cases") +
+       theme(plot.title = element_text(hjust = 0.5))
+
+```
+In this case, top TB cases distribution by countries are shown as following graph, from which we can know which countries are worse off.
+
+```{r}
+## look at the data grouped by sex
+
+VDSex = who2%>%
+        group_by(sex)%>%
+        tally(cases)
+ggplot(data=VDSex, aes(x=sex, y=n)) + 
+       geom_bar(stat="identity",width=0.5,fill="gray") +
+       labs(title="Number of cases in four TB types", 
+            x="sex", y="number of cases") +
+       theme(plot.title = element_text(hjust = 0.5))
+
+```
+the above graph shows TB case distribution among female and male, it indicates that male are more easily affected.
+
+```{r}
+## Look at the data grouped by age
+VDAge = who2%>%
+        group_by(age)%>%
+        tally(cases)
+ggplot(data=VDAge, aes(x=age, y=n)) + 
+       geom_bar(stat="identity",width=0.5,fill="gray") +
+       labs(title="Number of cases in four TB types", 
+            x="age", y="number of cases") +
+       theme(plot.title = element_text(hjust = 0.5))
+
+```
+the above graph shows TB case distribution among different ages, it indicates that people with young and the middle-aged are more possible to be affected.
+
+
+```{r 2.f}
+
+qtrRev = tibble(Group=c(1,1,1,1,2,2,2,2,3,3,3,3),
+                Year=c(2006,2007,2008,2009,2006,2007,2008,2009,2006,2007,2008,2009),
+                Qtr.1=c(15,12,22,10,12,16,13,23,11,13,17,14),
+                Qtr.2=c(16,13,22,14,13,14,11,20,12,11,12,9),
+                Qtr.3=c(19,27,24,20,25,21,29,26,22,27,23,31),
+                Qtr.4=c(17,23,20,16,18,19,15,20,16,21,19,24))
+print(qtrRev)
+
+```
+
+```{r}
+
+qtrRev_Tidy = qtrRev %>%
+  pivot_longer(cols = Qtr.1:Qtr.4, names_to = "Interval_ID", values_to = "Revenue", values_drop_na = FALSE) %>%
+  separate(Interval_ID, c("Time_Interval","Interval_ID"))
+qtrRev_Tidy
+
+```
